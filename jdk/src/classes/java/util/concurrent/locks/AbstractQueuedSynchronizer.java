@@ -1826,12 +1826,16 @@ public abstract class AbstractQueuedSynchronizer
      *
      * <p>This class is Serializable, but all fields are transient,
      * so deserialized conditions have no waiters.
+     *
+     *
      */
     public class ConditionObject implements Condition, java.io.Serializable {
         private static final long serialVersionUID = 1173984872572414699L;
         /** First node of condition queue. */
+        //条件队列的头结点
         private transient Node firstWaiter;
         /** Last node of condition queue. */
+        //条件队列的尾结点
         private transient Node lastWaiter;
 
         /**
@@ -1844,6 +1848,8 @@ public abstract class AbstractQueuedSynchronizer
         /**
          * Adds a new waiter to wait queue.
          * @return its new wait node
+         *
+         * 向条件队列中新增节点
          */
         private Node addConditionWaiter() {
             Node t = lastWaiter;
@@ -1852,6 +1858,7 @@ public abstract class AbstractQueuedSynchronizer
                 unlinkCancelledWaiters();
                 t = lastWaiter;
             }
+            //将节点添加到队尾
             Node node = new Node(Thread.currentThread(), Node.CONDITION);
             if (t == null)
                 firstWaiter = node;
@@ -1903,10 +1910,16 @@ public abstract class AbstractQueuedSynchronizer
          * particular target to unlink all pointers to garbage nodes
          * without requiring many re-traversals during cancellation
          * storms.
+         *
+         * 从前向后遍历条件队列
+         * 将不处于CONDITION状态的节点从条件队列中移除
+         * 持有锁的操作 无需考虑线程竞争
          */
         private void unlinkCancelledWaiters() {
             Node t = firstWaiter;
+            //上一个处于CONDITION状态的节点
             Node trail = null;
+            //从头至尾将所有不处于CONDITION状态的节点移除
             while (t != null) {
                 Node next = t.nextWaiter;
                 if (t.waitStatus != Node.CONDITION) {
@@ -2028,15 +2041,26 @@ public abstract class AbstractQueuedSynchronizer
          *      {@link #acquire} with saved state as argument.
          * <li> If interrupted while blocked in step 4, throw InterruptedException.
          * </ol>
+         *
+         * 1.将当前线程封装为CONDITION状态的节点入队
+         * 2.释放外部AQS对象的锁 唤醒等待锁释放的线程
+         * 3.判断当前线程节点是否已经被转移到了AQS外部的等待队列 如果没有则阻塞等待被唤醒 传播收到的中断信号
+         * 4.当节点已经被转移到AQS等待队列 进入AQS获取锁的逻辑
+         *
          */
         public final void await() throws InterruptedException {
             if (Thread.interrupted())
                 throw new InterruptedException();
+            //先将线程封装为Condition状态的node入队
             Node node = addConditionWaiter();
+            //释放外部AQS的锁
             int savedState = fullyRelease(node);
             int interruptMode = 0;
+            //判断当前线程对应节点是否已经从条件队列被转移到了外部AQS的等待队列
             while (!isOnSyncQueue(node)) {
+                //如果没有则阻塞
                 LockSupport.park(this);
+
                 if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
                     break;
             }

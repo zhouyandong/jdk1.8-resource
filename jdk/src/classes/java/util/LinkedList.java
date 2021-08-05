@@ -84,12 +84,17 @@ public class LinkedList<E>
     extends AbstractSequentialList<E>
     implements List<E>, Deque<E>, Cloneable, java.io.Serializable
 {
+    /**
+     * list中节点数
+     * list元素被增删的时候会修改
+     */
     transient int size = 0;
 
     /**
      * Pointer to first node.
      * Invariant: (first == null && last == null) ||
      *            (first.prev == null && first.item != null)
+     * 首节点
      */
     transient Node<E> first;
 
@@ -97,11 +102,13 @@ public class LinkedList<E>
      * Pointer to last node.
      * Invariant: (first == null && last == null) ||
      *            (last.next == null && last.item != null)
+     * 尾节点
      */
     transient Node<E> last;
 
     /**
      * Constructs an empty list.
+     * 增删节点时进行初始化
      */
     public LinkedList() {
     }
@@ -136,6 +143,10 @@ public class LinkedList<E>
 
     /**
      * Links e as last element.
+     *
+     * 向链表尾部新增一个节点
+     * 判断last是否为空 如果为空说明链表还未进行初始化 则将head指向新节点
+     * 链表长度加一
      */
     void linkLast(E e) {
         final Node<E> l = last;
@@ -333,6 +344,8 @@ public class LinkedList<E>
      *
      * @param e element to be appended to this list
      * @return {@code true} (as specified by {@link Collection#add})
+     *
+     * 向链表尾部添加一个元素
      */
     public boolean add(E e) {
         linkLast(e);
