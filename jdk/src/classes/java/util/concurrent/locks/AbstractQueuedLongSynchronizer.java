@@ -57,8 +57,7 @@ import sun.misc.Unsafe;
  * @since 1.6
  * @author Doug Lea
  *
- *
- *
+ * state的类型为Long
  */
 public abstract class AbstractQueuedLongSynchronizer
     extends AbstractOwnableSynchronizer
@@ -353,7 +352,11 @@ public abstract class AbstractQueuedLongSynchronizer
          * we save a field by using special value to indicate shared
          * mode.
          */
-        //标记获取资源的类型 共享或独占
+        /**
+         * 如果是共享模式 存储的为一个共享模式的标识
+         * 如果是独占模式 在不使用Condition的情况下 存储为独占标识 此标识的枚举为null  static final Node EXCLUSIVE = null
+         *              在使用Condition的情况下 存储的是下一个Condition节点
+         */
         Node nextWaiter;
 
         /**

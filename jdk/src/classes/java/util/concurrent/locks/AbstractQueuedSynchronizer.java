@@ -285,6 +285,8 @@ import sun.misc.Unsafe;
  *
  * @since 1.5
  * @author Doug Lea
+ *
+ * 具体注释见AbstractQueuedLongSynchronizer
  */
 public abstract class AbstractQueuedSynchronizer
     extends AbstractOwnableSynchronizer
