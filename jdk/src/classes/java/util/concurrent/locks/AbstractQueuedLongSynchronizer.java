@@ -1698,6 +1698,10 @@ public abstract class AbstractQueuedLongSynchronizer
          */
         Node p = enq(node);
         int ws = p.waitStatus;
+        /**
+         * 如果同步队列前驱节点为取消 或者设置SIGNAL失败 则需唤醒node对应的线程参与锁竞争
+         * 如果设置成功则会有前驱节点进行唤醒
+         */
         if (ws > 0 || !compareAndSetWaitStatus(p, ws, Node.SIGNAL))
             LockSupport.unpark(node.thread);
         return true;
@@ -1862,6 +1866,9 @@ public abstract class AbstractQueuedLongSynchronizer
         /**
          * Adds a new waiter to wait queue.
          * @return its new wait node
+         *
+         * 向条件队列中添加节点
+         * 通过Node中的nextWaiter做连接
          */
         private Node addConditionWaiter() {
             Node t = lastWaiter;
@@ -1887,9 +1894,13 @@ public abstract class AbstractQueuedLongSynchronizer
          */
         private void doSignal(Node first) {
             do {
+                //将头结点从条件队列中剔除 头结点的后继节点设置为头结点
                 if ( (firstWaiter = first.nextWaiter) == null)
                     lastWaiter = null;
                 first.nextWaiter = null;
+                /**
+                 * 将头结点从条件队列转移到外部CAS同步队列 失败则重试
+                 */
             } while (!transferForSignal(first) &&
                      (first = firstWaiter) != null);
         }
@@ -1897,6 +1908,8 @@ public abstract class AbstractQueuedLongSynchronizer
         /**
          * Removes and transfers all nodes.
          * @param first (non-null) the first node on condition queue
+         *
+         * 将所有Condition队列中的节点加入到同步队列中
          */
         private void doSignalAll(Node first) {
             lastWaiter = firstWaiter = null;
@@ -1951,10 +1964,14 @@ public abstract class AbstractQueuedLongSynchronizer
          *
          * @throws IllegalMonitorStateException if {@link #isHeldExclusively}
          *         returns {@code false}
+         *
+         * 唤醒条件队列中的节点
          */
         public final void signal() {
+            //判断当期线程是否持有独占锁
             if (!isHeldExclusively())
                 throw new IllegalMonitorStateException();
+            //对条件队列中的首节点进行唤醒操作
             Node first = firstWaiter;
             if (first != null)
                 doSignal(first);
@@ -2048,20 +2065,33 @@ public abstract class AbstractQueuedLongSynchronizer
          * </ol>
          */
         public final void await() throws InterruptedException {
+            //判断是否收到中断信号
             if (Thread.interrupted())
                 throw new InterruptedException();
+            //向条件队列中添加节点
             Node node = addConditionWaiter();
+            //释放同步资源
             long savedState = fullyRelease(node);
             int interruptMode = 0;
+            /**
+             * 判断当前节点是否转移到了同步队列 如果没有则阻塞
+             * 当被唤醒时 向外传递中断信号
+             */
             while (!isOnSyncQueue(node)) {
                 LockSupport.park(this);
                 if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
                     break;
             }
+            /**
+             * 当当前节点被转移到同步队列 进入AQS的锁竞争逻辑
+             */
             if (acquireQueued(node, savedState) && interruptMode != THROW_IE)
                 interruptMode = REINTERRUPT;
+            //当锁竞争成功后
+            //清除被取消的节点
             if (node.nextWaiter != null) // clean up if cancelled
                 unlinkCancelledWaiters();
+            //传递中断信号
             if (interruptMode != 0)
                 reportInterruptAfterWait(interruptMode);
         }
