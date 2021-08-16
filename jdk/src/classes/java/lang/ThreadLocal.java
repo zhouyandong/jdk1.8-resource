@@ -70,6 +70,31 @@ import java.util.function.Supplier;
  *
  * @author  Josh Bloch and Doug Lea
  * @since   1.2
+ *
+ * ThreadLocal主要用途是将数据封闭在线程内部避免并发问题
+ * 用法:
+ *  public class Test {
+ *      private static ThreadLocal<String> threadLocal = new ThreadLocal<>();
+ *
+ *      public void test(String s) {
+ *          threadLocal.set(s);
+ *          String st = threadLocal.get();
+ *          threadLocal.remove();
+ *      }
+ *  }
+ * 对theadLocal的并发访问无需进行同步等操作 线程从threadLocal中获取的值为线程本身设置的值
+ * 大体实现:
+ * 每一个线程对象都维护了一个成员变量threadLocals 类型是ThreadLocal.ThreadLocalMap
+ * ThreadLocalMap内部主要维护了一个Entry类型的数组
+ * Entry内部存储了K-V对 K的类型为ThreadLocal V的类型为TheadLocal新建时的泛型T
+ * 当ThreadLocal对象tl被设值obj时:
+ * 1.获取当前线程内部的ThreadLocalMap对象tlm
+ * 2.将tl作为key 将obj作为value新建Entry对象entry
+ * 3.获取tl的哈希值并且%tlm内部数组的长度 将entry写入到tlm内部数组对应的槽位上
+ *
+ * 当不同的线程通过同一个ThreadLocal对象tl获取值时
+ * 实际上是获取了封闭在栈上的ThreadLocalMap对象tlm 通过tl的哈希值获取tlm内部数组对应槽位上的entry对象
+ * tlm内部是数组是因为一个线程可以关联多个ThreadLocal对象 每一个ThreadLocal对象都会封装为Entry写入到数组中
  */
 public class ThreadLocal<T> {
     /**
@@ -157,9 +182,16 @@ public class ThreadLocal<T> {
      * @return the current thread's value of this thread-local
      */
     public T get() {
+        /**
+         * 获取绑定在当前线程对象上的ThreadLocalMap
+         */
         Thread t = Thread.currentThread();
         ThreadLocalMap map = getMap(t);
         if (map != null) {
+            /**
+             * 获取ThreadLocalMap对象中Entry数组对应槽位的Entry对象
+             * Entry对象中包装的value为set方法设置的值
+             */
             ThreadLocalMap.Entry e = map.getEntry(this);
             if (e != null) {
                 @SuppressWarnings("unchecked")
@@ -197,8 +229,16 @@ public class ThreadLocal<T> {
      *        this thread-local.
      */
     public void set(T value) {
+        /**
+         * 获取绑定在当前线程上的ThreadLocalMap对象
+         */
         Thread t = Thread.currentThread();
         ThreadLocalMap map = getMap(t);
+        /**
+         * 判断ThreadLocalMap是否已经被初始化
+         * 没有则构造器初始化 有则直接设值
+         * 将threadLocal对象和value包装为Entry 插入ThreadLocalMap内部数组对应的槽位上
+         */
         if (map != null)
             map.set(this, value);
         else
