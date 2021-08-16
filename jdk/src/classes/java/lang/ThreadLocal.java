@@ -363,6 +363,7 @@ public class ThreadLocal<T> {
         /**
          * The table, resized as necessary.
          * table.length MUST always be a power of two.
+         * 存储Entry的数组
          */
         private Entry[] table;
 
