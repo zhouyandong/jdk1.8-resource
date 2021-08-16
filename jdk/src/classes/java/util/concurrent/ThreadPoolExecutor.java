@@ -692,14 +692,25 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * termination possible -- reducing worker count or removing tasks
      * from the queue during shutdown. The method is non-private to
      * allow access from ScheduledThreadPoolExecutor.
+     *
+     * 将线程从STOP或SHUTDOWN流转TIDYING的方法
      */
     final void tryTerminate() {
         for (;;) {
             int c = ctl.get();
+            /**
+             * 判断线程池是否处于以下两种状态之一：
+             * 1.STOP
+             * 2.SHUTDOWN且工作队列为空
+             * 如果是 则执行线程池中止逻辑
+             */
             if (isRunning(c) ||
                 runStateAtLeast(c, TIDYING) ||
                 (runStateOf(c) == SHUTDOWN && ! workQueue.isEmpty()))
                 return;
+            /**
+             *
+             */
             if (workerCountOf(c) != 0) { // Eligible to terminate
                 interruptIdleWorkers(ONLY_ONE);
                 return;
