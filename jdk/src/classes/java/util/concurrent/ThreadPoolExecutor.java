@@ -709,13 +709,26 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                 (runStateOf(c) == SHUTDOWN && ! workQueue.isEmpty()))
                 return;
             /**
+             * 中止线程池之前需要判断是否仍有工作线程未被销毁
+             * 如果仍有工作线程 则执行中断空闲线程逻辑
              *
+             * 此处只是中断一个线程 因为线程在收到中断信号后 会进入processWorkerExit方法
+             * 此方法会继续调用tryTerminate方法进行线程中断
              */
             if (workerCountOf(c) != 0) { // Eligible to terminate
                 interruptIdleWorkers(ONLY_ONE);
                 return;
             }
 
+            /**
+             * 当线程已经全部被销毁时
+             * 获取线程池锁
+             * 1.将线程池状态流转到TIDYING
+             * 2.执行terminated()钩子方法
+             * 3.将线程池状态流转到TERMINATED
+             * 4.唤醒在termination条件上等待的线程
+             * 5.解锁
+             */
             final ReentrantLock mainLock = this.mainLock;
             mainLock.lock();
             try {
