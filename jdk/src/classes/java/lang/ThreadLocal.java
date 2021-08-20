@@ -344,6 +344,20 @@ public class ThreadLocal<T> {
          * == null) mean that the key is no longer referenced, so the
          * entry can be expunged from table.  Such entries are referred to
          * as "stale entries" in the code that follows.
+         *
+         * 弱引用:
+         * Product productA = new Product();
+         * WeakReference<Product> weakReference = new WeakReference<>(productA);
+         * 此时指向堆中productA对象内存地址的引用有两个 productA和weakReference
+         * 当强引用productA不再指向堆上productA对象的内存地址时 productA会被判断为引用不可达对象 会被适时回收
+         *
+         * ThreadLocal对象会有两条引用链：
+         * 1.栈上threadLocal 2.threadLocalMap.entry[]—> threadLocal
+         * 对用户可感知的是栈上的threadLocal 当其引用断开时 threadLocalMap对threadLocal的引用也需要断开 否则会发生内存泄露
+         * 所以将entry继承为弱引用可以省略手动断开threadLocalMap.entry[]—>threadLocal引用的操作
+         * 虽然threadLocal无需手动释放 但是Entry和Entry.value需要手动释放 需要调用threadLocal.remove()进行内存释放
+         * 如果没有调用threadLocal.remove() 在对threadLocal的其他操作中 也有可能触发到expungeStaleEntry方法
+         * 所以也不一定会出现内存泄露
          */
         static class Entry extends WeakReference<ThreadLocal<?>> {
             /** The value associated with this ThreadLocal. */
@@ -369,11 +383,13 @@ public class ThreadLocal<T> {
 
         /**
          * The number of entries in the table.
+         * 数组中存储的entry的数量
          */
         private int size = 0;
 
         /**
          * The next size value at which to resize.
+         * 扩容的阈值
          */
         private int threshold; // Default to 0
 
@@ -386,6 +402,8 @@ public class ThreadLocal<T> {
 
         /**
          * Increment i modulo len.
+         * 查找当前数组下标的下一个节点 超过数组长度则回到数组0下标
+         * 实现环形数组
          */
         private static int nextIndex(int i, int len) {
             return ((i + 1 < len) ? i + 1 : 0);
@@ -393,6 +411,7 @@ public class ThreadLocal<T> {
 
         /**
          * Decrement i modulo len.
+         * 查找当前数组下标的上一个节点 小于0则回到数组的最后一位
          */
         private static int prevIndex(int i, int len) {
             return ((i - 1 >= 0) ? i - 1 : len - 1);
@@ -450,6 +469,9 @@ public class ThreadLocal<T> {
          *
          * @param  key the thread local object
          * @return the entry associated with key, or null if no such
+         *
+         * 根据threadLocal的哈希值 获取对应的数组下标
+         * 如果出现哈希冲突 向后一数组下标查找
          */
         private Entry getEntry(ThreadLocal<?> key) {
             int i = key.threadLocalHashCode & (table.length - 1);
@@ -468,18 +490,22 @@ public class ThreadLocal<T> {
          * @param  i the table index for key's hash code
          * @param  e the entry at table[i]
          * @return the entry associated with key, or null if no such
+         *
+         * 当出现哈希冲突时 向环形数组的后一位查找
+         * 对已经失效的threadLocal进行内存释放
          */
         private Entry getEntryAfterMiss(ThreadLocal<?> key, int i, Entry e) {
             Entry[] tab = table;
             int len = tab.length;
 
             while (e != null) {
+                //获取entry中存储的threadLocal对象
                 ThreadLocal<?> k = e.get();
-                if (k == key)
+                if (k == key) //如果threadLocal对象是同一个则返回
                     return e;
-                if (k == null)
+                if (k == null) //如果threadLocal已经被gc 则进行entry对象的释放 并且对其他的entry进行rehash
                     expungeStaleEntry(i);
-                else
+                else //查找下一个索引下标
                     i = nextIndex(i, len);
                 e = tab[i];
             }
@@ -491,6 +517,8 @@ public class ThreadLocal<T> {
          *
          * @param key the thread local object
          * @param value the value to be set
+         *
+         * 为threadLocal设值
          */
         private void set(ThreadLocal<?> key, Object value) {
 
@@ -498,27 +526,30 @@ public class ThreadLocal<T> {
             // least as common to use set() to create new entries as
             // it is to replace existing ones, in which case, a fast
             // path would fail more often than not.
-
+            //获取threadLocal的哈希值 查找其所在的数组索引
             Entry[] tab = table;
             int len = tab.length;
             int i = key.threadLocalHashCode & (len-1);
-
+            //从数组的索引下标开始向后查找 直到entry为空
             for (Entry e = tab[i];
                  e != null;
                  e = tab[i = nextIndex(i, len)]) {
                 ThreadLocal<?> k = e.get();
-
+                //如果threadLocal相同 直接赋值
                 if (k == key) {
                     e.value = value;
                     return;
                 }
-
+                /**
+                 * 如果threadLocal已经被清除 则查找threadLocal及其对应的entry
+                 * 如果查找到则将entry与当前被清除的entry位置替换
+                 */
                 if (k == null) {
                     replaceStaleEntry(key, value, i);
                     return;
                 }
             }
-
+            //如果数组索引所在的位置entry为空 则新建一个entry写入
             tab[i] = new Entry(key, value);
             int sz = ++size;
             if (!cleanSomeSlots(i, sz) && sz >= threshold)
@@ -527,6 +558,7 @@ public class ThreadLocal<T> {
 
         /**
          * Remove the entry for key.
+         * 释放和threadLocal相关的entry和value数据
          */
         private void remove(ThreadLocal<?> key) {
             Entry[] tab = table;
@@ -568,6 +600,7 @@ public class ThreadLocal<T> {
             // We clean out whole runs at a time to avoid continual
             // incremental rehashing due to garbage collector freeing
             // up refs in bunches (i.e., whenever the collector runs).
+            //先向前查找最前一个threadLocal为空的entry 因为可能存在垃圾处理器将内存清除的情况
             int slotToExpunge = staleSlot;
             for (int i = prevIndex(staleSlot, len);
                  (e = tab[i]) != null;
@@ -626,12 +659,18 @@ public class ThreadLocal<T> {
          * @return the index of the next null slot after staleSlot
          * (all between staleSlot and this slot will have been checked
          * for expunging).
+         *
+         * 关键的释放内存的方法
+         * 释放对应数组下标的entry对象
+         * 由于对相同hash值的entry采用向后一位写入的方式
+         * 所有需要查找被释放的entry后面的entry 对其进行rehash 重新计算其在数组中的位置
          */
         private int expungeStaleEntry(int staleSlot) {
             Entry[] tab = table;
             int len = tab.length;
 
             // expunge entry at staleSlot
+            // 释放entry和entry中value的内存
             tab[staleSlot].value = null;
             tab[staleSlot] = null;
             size--;
@@ -639,6 +678,11 @@ public class ThreadLocal<T> {
             // Rehash until we encounter null
             Entry e;
             int i;
+            /**
+             * 查找被释放的entry在数组中的下一个entry 直到下一个entry为null为止 因为相邻的两个entry都有可能hash值相同
+             * 如果下一个entry中的threadLocal对象也已释放 则释放其entry
+             * 如果下一个entry中的threadLocal未被释放 则获取其hash值 重新计算其在数组中的位置 写入到数组中
+             */
             for (i = nextIndex(staleSlot, len);
                  (e = tab[i]) != null;
                  i = nextIndex(i, len)) {
