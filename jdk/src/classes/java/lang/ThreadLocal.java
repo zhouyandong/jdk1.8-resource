@@ -663,7 +663,7 @@ public class ThreadLocal<T> {
          * 关键的释放内存的方法
          * 释放对应数组下标的entry对象
          * 由于对相同hash值的entry采用向后一位写入的方式
-         * 所有需要查找被释放的entry后面的entry 对其进行rehash 重新计算其在数组中的位置
+         * 所以需要查找被释放的entry后面的entry 对其进行rehash 重新计算其在数组中的位置
          */
         private int expungeStaleEntry(int staleSlot) {
             Entry[] tab = table;
