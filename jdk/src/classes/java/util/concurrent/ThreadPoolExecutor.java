@@ -1101,7 +1101,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * 工作线程从阻塞队列中获取任务
      * 返回值为提交到线程池中的任务或者null
      * 返回为null的情况：
-     * 1.当期工作线程数超过了最大线程数maximumPoolSize 出现这种情况是因为maximumPoolSize是可以动态调整的
+     * 1.当前工作线程数超过了最大线程数maximumPoolSize 出现这种情况是因为maximumPoolSize是可以动态调整的
      * 2.线程池状态为STOP
      * 3.线程池状态为SHUTDOWN且任务队列为空
      * 4.配置中配置了超时时间 从任务队列获取任务的时间超过超时时间
