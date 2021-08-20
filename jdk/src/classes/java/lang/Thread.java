@@ -1738,10 +1738,26 @@ class Thread implements Runnable {
      *
      * @since   1.5
      * @see #getState
+     *
+     * 线程状态
+     * 上层的java线程状态 不是映射到底层系统线程的状态
+     * 对于底层cpu的线程调度无感
+     * 所有的线程状态切换都是由于调用java api导致的 和底层操作系统无关
+     * NEW —> new Thread()
+     * RUNNABLE -> thread.start()
+     *          线程正在正常运行 cpu时间片的切换、I/O读取时的切换等 对java线程状态无感 都是RUNNABLE状态
+     * BLOCKED -> synchorized
+     *          线程阻塞于监视器锁 处于entryList中
+     * WAITING -> object.wait()、Thread.join()等
+     *          线程主动休眠 等待唤醒信号
+     * TIMED_WAITING -> Thread.sleep(time)等
+     *          线程陷入有超时时间的休眠
+     * TERMINATED -> 线程执行完成
      */
     public enum State {
         /**
          * Thread state for a thread which has not yet started.
+         * 线程对象刚刚建立 还未启动
          */
         NEW,
 
@@ -1750,6 +1766,7 @@ class Thread implements Runnable {
          * state is executing in the Java virtual machine but it may
          * be waiting for other resources from the operating system
          * such as processor.
+         * 线程正在运行
          */
         RUNNABLE,
 
@@ -1759,6 +1776,7 @@ class Thread implements Runnable {
          * to enter a synchronized block/method or
          * reenter a synchronized block/method after calling
          * {@link Object#wait() Object.wait}.
+         * 线程阻塞于synchronized锁
          */
         BLOCKED,
 
@@ -1780,6 +1798,8 @@ class Thread implements Runnable {
          * <tt>Object.notify()</tt> or <tt>Object.notifyAll()</tt> on
          * that object. A thread that has called <tt>Thread.join()</tt>
          * is waiting for a specified thread to terminate.
+         *
+         * 线程主动陷入休眠
          */
         WAITING,
 
