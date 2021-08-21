@@ -76,6 +76,10 @@ import java.util.function.Consumer;
  * @since 1.5
  * @author Doug Lea
  * @param <E> the type of elements held in this collection
+ *
+ * 阻塞队列
+ * 实现生产者消费者模型
+ * 和一般的实现方式不同的是通过两个锁 对take和put操作通过不同的锁进行分离提升性能
  */
 public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         implements BlockingQueue<E>, java.io.Serializable {
@@ -118,6 +122,8 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 
     /**
      * Linked list node class
+     * 队列节点
+     * 单向的链表
      */
     static class Node<E> {
         E item;
@@ -134,30 +140,40 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
     }
 
     /** The capacity bound, or Integer.MAX_VALUE if none */
+    //队列的最大容量
     private final int capacity;
 
     /** Current number of elements */
+    //当前队列中节点数量
     private final AtomicInteger count = new AtomicInteger();
 
     /**
      * Head of linked list.
      * Invariant: head.item == null
      */
+    //头结点
     transient Node<E> head;
 
     /**
      * Tail of linked list.
      * Invariant: last.next == null
      */
+    //尾结点
     private transient Node<E> last;
 
     /** Lock held by take, poll, etc */
+    /**
+     * 从队列中取数据的锁
+     */
     private final ReentrantLock takeLock = new ReentrantLock();
 
     /** Wait queue for waiting takes */
     private final Condition notEmpty = takeLock.newCondition();
 
     /** Lock held by put, offer, etc */
+    /**
+     * 向队列中写数据的锁
+     */
     private final ReentrantLock putLock = new ReentrantLock();
 
     /** Wait queue for waiting puts */
@@ -166,6 +182,9 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Signals a waiting take. Called only from put/offer (which do not
      * otherwise ordinarily lock takeLock.)
+     * 通知消费者 队列不为空 被put/offer方法调用
+     * 消费者在获取队列数据时 如果队列中为空 会释放take锁 并等待在notEmpty条件上
+     * 生产者在调用put/offer之后 获取take锁 通知等待在notEmpty条件上的线程
      */
     private void signalNotEmpty() {
         final ReentrantLock takeLock = this.takeLock;
@@ -179,6 +198,9 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 
     /**
      * Signals a waiting put. Called only from take/poll.
+     * 通知生产者 队列不满 被take/poll方法调用
+     * 生产者在向队列中写入数据时 如果队列已满 会释放put锁 并等待在notFull条件上
+     * 消费者在调用take/poll之后 获取put锁 通知等待在notFull条件上的线程
      */
     private void signalNotFull() {
         final ReentrantLock putLock = this.putLock;
@@ -327,6 +349,14 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
      *
      * @throws InterruptedException {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
+     *
+     * 向队列中写入数据
+     * 1.put锁上锁
+     * 2.判断队列是否已满 如果满了 等待在notFull条件上等待被唤醒
+     * 3.向队列中写入数据
+     * 4.判断队列是否已满 如果没满 通知等在在notFull条件上的线程
+     * 5.解锁
+     * 6.通知其他线程队列不空
      */
     public void put(E e) throws InterruptedException {
         if (e == null) throw new NullPointerException();
@@ -406,6 +436,9 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
      * insert an element only by throwing an exception.
      *
      * @throws NullPointerException if the specified element is null
+     *
+     * 向队列中写入数据
+     * 当队列已满时 入队失败
      */
     public boolean offer(E e) {
         if (e == null) throw new NullPointerException();
@@ -431,6 +464,17 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         return c >= 0;
     }
 
+    /**
+     * 从队列中获取数据
+     * 1.take锁上锁
+     * 2.判断队列是否为空 如果为空则等待在notEmpty条件上等待被唤醒
+     * 3.从队列中获取数据
+     * 4.判断队列中剩余数据 如果大于1 则唤醒等待在notEmpty条件上的消费者
+     * 5.解锁
+     * 6.向生产者发出队列不满信号
+     * @return
+     * @throws InterruptedException
+     */
     public E take() throws InterruptedException {
         E x;
         int c = -1;
@@ -478,6 +522,11 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         return x;
     }
 
+    /**
+     * 从队列中获取数据
+     * 如果队列为空则获取null
+     * @return
+     */
     public E poll() {
         final AtomicInteger count = this.count;
         if (count.get() == 0)

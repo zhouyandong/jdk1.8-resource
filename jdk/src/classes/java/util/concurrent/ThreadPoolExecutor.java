@@ -450,7 +450,9 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * queues such as DelayQueues for which poll() is allowed to
      * return null even if it may later return non-null when delays
      * expire.
-     * 阻塞队列 任务
+     * 阻塞队列
+     * 当运行时线程数等于核心线程数时 任务会被提交到阻塞队列当中
+     *
      */
     private final BlockingQueue<Runnable> workQueue;
 
