@@ -152,6 +152,14 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  *
  * @since 1.5
  * @author Doug Lea
+ *
+ * 线程协作门闩类
+ * 内部通过继承于AQS的Sync类实现
+ * countDown方法实际调用AQS的tryRelese方法 将state减1
+ * wait方法实际调用AQS的tryAcquire方法 获取锁的条件为state为0
+ *
+ * 一般的用法是count代表未完成的任务数 每一个任务执行完成 调用countDown方法将count减1
+ * 等待所有任务完成的线程调用wait方法等待count数变为0 变为0后获取AQS锁成功
  */
 public class CountDownLatch {
     /**
