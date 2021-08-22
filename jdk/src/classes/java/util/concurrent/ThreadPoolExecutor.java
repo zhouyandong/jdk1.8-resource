@@ -450,9 +450,9 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * queues such as DelayQueues for which poll() is allowed to
      * return null even if it may later return non-null when delays
      * expire.
-     * 阻塞队列
+     * 任务队列
      * 当运行时线程数等于核心线程数时 任务会被提交到阻塞队列当中
-     *
+     * 阻塞队列内部封装了一个生产者——消费者模型
      */
     private final BlockingQueue<Runnable> workQueue;
 
@@ -517,6 +517,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * will want to perform clean pool shutdown to clean up.  There
      * will likely be enough memory available for the cleanup code to
      * complete without encountering yet another OutOfMemoryError.
+     *
+     * 线程工厂
      */
     private volatile ThreadFactory threadFactory;
 
@@ -544,12 +546,17 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * Core pool size is the minimum number of workers to keep alive
      * (and not allow to time out etc) unless allowCoreThreadTimeOut
      * is set, in which case the minimum is zero.
+     *
+     * 核心线程数
+     * 线程池中的常驻线程数
      */
     private volatile int corePoolSize;
 
     /**
      * Maximum pool size. Note that the actual maximum is internally
      * bounded by CAPACITY.
+     *
+     * 最大线程数
      */
     private volatile int maximumPoolSize;
 
@@ -799,6 +806,9 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
     /**
      * Interrupts all threads, even if active. Ignores SecurityExceptions
      * (in which case some threads may remain uninterrupted).
+     *
+     * 向工作线程发出中断信号
+     * 不同于清理空闲线程 不会获取工作线程自身的锁 也就是无论线程是否处于空闲状态 都向起发出中断信号
      */
     private void interruptWorkers() {
         final ReentrantLock mainLock = this.mainLock;
@@ -829,6 +839,10 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * interrupt only one idle worker, but shutdown() interrupts all
      * idle workers so that redundant workers exit promptly, not
      * waiting for a straggler task to finish.
+     *
+     * 清理空闲线程
+     * 当工作线程处于空闲状态时 其关联的worker对象锁会释放
+     * 遍历工作线程集合 当获取worker锁成功时 说明线程处于空闲状态 向其发出中断信号
      */
     private void interruptIdleWorkers(boolean onlyOne) {
         final ReentrantLock mainLock = this.mainLock;
@@ -1482,6 +1496,13 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * to do that.
      *
      * @throws SecurityException {@inheritDoc}
+     *
+     * 停止线程池
+     * 不会立即终止线程池 不会接受新的任务 会执行完正在运行的任务和在任务队列中的任务
+     * 1.将线程池状态转换为SHUTDOWN
+     * 2.清理空闲线程
+     * 3.执行关闭钩子
+     * 4.清理所有工作线程
      */
     public void shutdown() {
         final ReentrantLock mainLock = this.mainLock;
@@ -1513,6 +1534,13 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * fails to respond to interrupts may never terminate.
      *
      * @throws SecurityException {@inheritDoc}
+     *
+     * 立即停止当前线程池
+     * 不接受任务 也不处理队列中的任务 运行中的线程会立即中断
+     * 1.线程池状态转为STOP
+     * 2.向工作线程集合中的所有线程发出中断信号 忽略其自身锁
+     * 3.导出还未处理的任务
+     * 4.清理所有工作线程
      */
     public List<Runnable> shutdownNow() {
         List<Runnable> tasks;
@@ -1642,6 +1670,10 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * @param corePoolSize the new core size
      * @throws IllegalArgumentException if {@code corePoolSize < 0}
      * @see #getCorePoolSize
+     *
+     * 调整线程池核心线程数
+     * worker之所以是不可重入锁就是为了修复此逻辑产生的bug
+     * 如果是可重入锁 interruptIdleWorkers会将自身线程中断
      */
     public void setCorePoolSize(int corePoolSize) {
         if (corePoolSize < 0)
@@ -2112,6 +2144,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * directly in the calling thread of the {@code execute} method,
      * unless the executor has been shut down, in which case the task
      * is discarded.
+     *
+     * 提交任务的线程自身执行任务
      */
     public static class CallerRunsPolicy implements RejectedExecutionHandler {
         /**
@@ -2136,6 +2170,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
     /**
      * A handler for rejected tasks that throws a
      * {@code RejectedExecutionException}.
+     *
+     * 抛出拒绝入队异常
      */
     public static class AbortPolicy implements RejectedExecutionHandler {
         /**
@@ -2160,6 +2196,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
     /**
      * A handler for rejected tasks that silently discards the
      * rejected task.
+     *
+     * 什么都不做
      */
     public static class DiscardPolicy implements RejectedExecutionHandler {
         /**
@@ -2181,6 +2219,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * A handler for rejected tasks that discards the oldest unhandled
      * request and then retries {@code execute}, unless the executor
      * is shut down, in which case the task is discarded.
+     *
+     * 抛弃队头的任务
      */
     public static class DiscardOldestPolicy implements RejectedExecutionHandler {
         /**
