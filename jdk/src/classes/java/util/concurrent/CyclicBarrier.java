@@ -135,6 +135,21 @@ import java.util.concurrent.locks.ReentrantLock;
  * @see CountDownLatch
  *
  * @author Doug Lea
+ *
+ * 周期性的屏障
+ * 一个周期是所有任务都执行完成
+ * 调用await方法的线程会在await处等待
+ * 当最后一个线程任务执行完成 其会:
+ * 1.执行新建CyclicBarrier的Runnable
+ * 2.唤醒所有等待在await处的线程
+ * 3.重置cyclicBarrier
+ *
+ * 实现的原理比较简单 通过ReentrantLock和其内部关联的Condition实现
+ * 传入一个计数器代表要完成的任务数 每一个线程执行任务完成会调用await
+ * await:被ReentrantLock保护
+ * 1.对任务数减一
+ * 2.判断剩余任务数是否为0
+ * 3.如果为不为0 则等待在condition 如果为0则执行 唤醒、重置等操作
  */
 public class CyclicBarrier {
     /**
