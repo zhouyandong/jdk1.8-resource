@@ -78,6 +78,9 @@ import java.util.Spliterator;
  * @since 1.5
  * @author Doug Lea
  * @param <E> the type of elements held in this collection
+ *
+ * 阻塞队列的数组实现
+ * 通过环形数组+锁实现
  */
 public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         implements BlockingQueue<E>, java.io.Serializable {
@@ -91,15 +94,19 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     private static final long serialVersionUID = -817911632652898426L;
 
     /** The queued items */
+    //存储数据的数组 环形
     final Object[] items;
 
     /** items index for next take, poll, peek or remove */
+    //从数组中取数据的索引 类似于链表的头结点
     int takeIndex;
 
     /** items index for next put, offer, or add */
+    //向数组中写数据的索引 类似于链表的尾结点
     int putIndex;
 
     /** Number of elements in the queue */
+    //当前数组中元素的数目
     int count;
 
     /*
@@ -108,12 +115,18 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      */
 
     /** Main lock guarding all access */
+    /**
+     * 不同于链表有头结点和尾结点
+     * 数组整体只需要一个锁
+     */
     final ReentrantLock lock;
 
     /** Condition for waiting takes */
+    //数组非空条件
     private final Condition notEmpty;
 
     /** Condition for waiting puts */
+    //数组不满条件
     private final Condition notFull;
 
     /**
@@ -153,6 +166,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Inserts element at current put position, advances, and signals.
      * Call only when holding lock.
+     * 向数组中写数据 如果putIndex越界 则回到数组的头部
+     * 唤醒等待在notEmpty条件上的消费者线程
      */
     private void enqueue(E x) {
         // assert lock.getHoldCount() == 1;
@@ -168,6 +183,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     /**
      * Extracts element at current take position, advances, and signals.
      * Call only when holding lock.
+     * 从数组中取数据 如果takeIndex越界 则回到数组头部
+     * 唤醒等待在notFull条件上的生产者线程
      */
     private E dequeue() {
         // assert lock.getHoldCount() == 1;
@@ -320,6 +337,9 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * which can fail to insert an element only by throwing an exception.
      *
      * @throws NullPointerException if the specified element is null
+     *
+     * 向数组中写入数据
+     * 如果数组已满 则返回false
      */
     public boolean offer(E e) {
         checkNotNull(e);
@@ -343,6 +363,9 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      *
      * @throws InterruptedException {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
+     *
+     * 向数组中写入数据
+     * 如果数组已满 则在notFull条件上等待被唤醒
      */
     public void put(E e) throws InterruptedException {
         checkNotNull(e);
@@ -385,6 +408,11 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         }
     }
 
+    /**
+     * 从数据中取数据
+     * 当数组中没有数据 返回空
+     * @return
+     */
     public E poll() {
         final ReentrantLock lock = this.lock;
         lock.lock();
@@ -395,6 +423,12 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         }
     }
 
+    /**
+     * 从数组中取数据
+     * 如果数组中没有数据 则在notEmpty条件上等待被唤醒
+     * @return
+     * @throws InterruptedException
+     */
     public E take() throws InterruptedException {
         final ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
