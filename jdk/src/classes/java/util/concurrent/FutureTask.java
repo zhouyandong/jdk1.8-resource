@@ -59,6 +59,10 @@ import java.util.concurrent.locks.LockSupport;
  * @since 1.5
  * @author Doug Lea
  * @param <V> The result type returned by this FutureTask's {@code get} methods
+ *
+ * 将任务封装为一个FutureTask
+ * 在run方法中封装一些状态转移的操作标记任务执行的状态
+ * 并且提供一些方法获取任务的执行状态或者干涉任务的执行
  */
 public class FutureTask<V> implements RunnableFuture<V> {
     /*
@@ -99,12 +103,18 @@ public class FutureTask<V> implements RunnableFuture<V> {
     private static final int INTERRUPTED  = 6;
 
     /** The underlying callable; nulled out after running */
+    //要执行的任务
     private Callable<V> callable;
     /** The result to return or exception to throw from get() */
+    //任务执行的结果
     private Object outcome; // non-volatile, protected by state reads/writes
     /** The thread running the callable; CASed during run() */
     private volatile Thread runner;
     /** Treiber stack of waiting threads */
+    /**
+     * 等待任务完成的线程
+     * 所有等待任务任务完成的线程组成一条链
+     */
     private volatile WaitNode waiters;
 
     /**
@@ -184,6 +194,7 @@ public class FutureTask<V> implements RunnableFuture<V> {
 
     /**
      * @throws CancellationException {@inheritDoc}
+     * 获取任务的执行结果 如果还未执行完 则将线程加入到等待链表
      */
     public V get() throws InterruptedException, ExecutionException {
         int s = state;

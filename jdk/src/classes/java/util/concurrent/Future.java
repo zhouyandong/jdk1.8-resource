@@ -92,6 +92,8 @@ package java.util.concurrent;
  * @since 1.5
  * @author Doug Lea
  * @param <V> The result type returned by this Future's {@code get} method
+ *
+ * 异步接口 一个任务的执行句柄
  */
 public interface Future<V> {
 
